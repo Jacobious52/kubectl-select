@@ -176,7 +176,7 @@ pub struct Copy {
 impl Binding for Copy {
     fn run(&self, ctx: &BindingContext) -> Option<String> {
         let mut clip_ctx: ClipboardContext = ClipboardProvider::new().ok()?;
-        clip_ctx.set_contents(ctx.names.join("\n")).ok();
+        clip_ctx.set_contents(Names.run(ctx)?).ok();
         None
     }
     fn key(&self) -> String {
