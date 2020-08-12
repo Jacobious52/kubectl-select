@@ -1,118 +1,12 @@
 use clap::Clap;
-use clipboard::{ClipboardContext, ClipboardProvider};
 use skim::prelude::*;
 use std::collections::HashMap;
-use subprocess::Exec;
 
-#[derive(Debug, Clone)]
-struct KubectlItem {
-    inner: String,
-}
+mod kubectl;
+use kubectl::*;
 
-impl KubectlItem {
-    fn new(inner: String) -> Self {
-        KubectlItem { inner: inner }
-    }
-}
-
-impl SkimItem for KubectlItem {
-    fn display(&self) -> Cow<AnsiString> {
-        Cow::Owned(self.inner.as_str().into())
-    }
-
-    fn text(&self) -> Cow<str> {
-        Cow::Borrowed(&self.inner)
-    }
-
-    fn preview(&self) -> ItemPreview {
-        ItemPreview::AnsiText(format!("{}", self.inner))
-    }
-
-    fn output(&self) -> Cow<str> {
-        Cow::Borrowed(self.inner.split_whitespace().next().unwrap_or(&self.inner))
-    }
-}
-
-#[derive(Debug, Clone)]
-struct KubectlOutput {
-    header: String,
-    items: Vec<KubectlItem>,
-}
-
-struct BindingContext {
-    namespace: Option<String>,
-    resource: String,
-
-    names: Vec<String>,
-}
-
-fn kubectl_base_cmd(namespace: Option<&str>, command: &str, resource: &str) -> subprocess::Exec {
-    let mut builder = Exec::cmd("kubectl").arg(command).arg(resource);
-    if let Some(namespace) = namespace.clone() {
-        builder = builder.arg("--namespace").arg(namespace);
-    }
-    builder
-}
-
-impl BindingContext {
-    fn names(&self) -> Option<String> {
-        Some(self.names.join("\n"))
-    }
-
-    fn json(&self) -> Option<String> {
-        Some(
-            kubectl_base_cmd(
-                self.namespace.as_ref().map(String::as_str),
-                "get",
-                &self.resource,
-            )
-            .arg("--output")
-            .arg("json")
-            .args(&self.names)
-            .capture()
-            .ok()?
-            .stdout_str(),
-        )
-    }
-
-    fn yaml(&self) -> Option<String> {
-        Some(
-            kubectl_base_cmd(
-                self.namespace.as_ref().map(String::as_str),
-                "get",
-                &self.resource,
-            )
-            .arg("--output")
-            .arg("yaml")
-            .args(&self.names)
-            .capture()
-            .ok()?
-            .stdout_str(),
-        )
-    }
-
-    fn describe(&self) -> Option<String> {
-        Some(
-            kubectl_base_cmd(
-                self.namespace.as_ref().map(String::as_str),
-                "describe",
-                &self.resource,
-            )
-            .args(&self.names)
-            .capture()
-            .ok()?
-            .stdout_str(),
-        )
-    }
-
-    fn enter(&self) -> Option<String> {
-        let mut ctx: ClipboardContext = ClipboardProvider::new().ok()?;
-
-        ctx.set_contents(self.names()?).ok();
-
-        None
-    }
-}
+mod bindings;
+use bindings::*;
 
 #[derive(Clap)]
 #[clap(version = "0.1", author = "Jacobious52")]
@@ -128,6 +22,7 @@ struct Opts {
 }
 
 impl Opts {
+    // adds the key bindings for skim to use as actions
     fn setup_bindings(&mut self) {
         self.key_bindings.insert("".into(), BindingContext::enter);
         self.key_bindings
@@ -140,7 +35,10 @@ impl Opts {
             .insert("ctrl-d".into(), BindingContext::describe);
     }
 
+    // run the end to end flow with the current options
     fn run(&self) -> Option<String> {
+        // everything builds from a kubectl get <resource> list
+        // presented in the same format as kubectl would by through skim for fuzzy search
         let kubectl_output = self.kubectl_get()?;
 
         let options = SkimOptionsBuilder::default()
@@ -158,25 +56,31 @@ impl Opts {
             ))
             .build()
             .unwrap();
-
+        
+        // put all the items in a channel for skim to read from
         let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
         for item in kubectl_output.items {
             let _ = tx_item.send(Arc::new(item));
         }
 
         // so that skim could know when to stop waiting for more items.
+        // we do this sync since kubectl buffers until everything is fetched anyway
         drop(tx_item);
 
+        // run skim, get the selected items and the key used to terminate skim
         let (selected_items, key) = Skim::run_with(&options, Some(rx_item))
             .map(|out| (out.selected_items, out.accept_key))
             .unwrap_or_else(|| (Vec::new(), None));
 
+        // anything returned will be printed to stdout
         return key
             .map(|k| self.handle_output(&k, &selected_items))
             .flatten();
     }
-
+    
+    // handles any action such as key binding / exit / accept and returns the output of the action
     fn handle_output(&self, key: &str, selected_items: &[Arc<dyn SkimItem>]) -> Option<String> {
+        // pre calculate all the names of the selected items since we only really need the name key
         let names: Vec<String> = selected_items
             .iter()
             .map(|i| i.output().into_owned())
@@ -187,10 +91,14 @@ impl Opts {
             resource: self.resource.clone(),
             names,
         };
-
+        // if our binding exists run it, otherwise 
         self.key_bindings.get(key)?(&binding_context)
     }
 
+    // kubectl get with options for the resource specified in the arguments
+    // kubectl get -n <namspace>? <resource>
+    // todo: add ability to change args based on resource with custom-columns
+    // for example: pods might want to always add the node and ip name without full -o 
     fn kubectl_get(&self) -> Option<KubectlOutput> {
         let builder = kubectl_base_cmd(
             self.namespace.as_ref().map(String::as_str),
@@ -224,6 +132,9 @@ fn main() {
     let mut opts: Opts = Opts::parse();
     opts.setup_bindings();
 
+    // the user can pipe to a reader of choice if desired
+    // so just print to stdout
+    // perhaps in future add optional inbuilt readers such as `bat`
     if let Some(final_output) = opts.run() {
         println!("{}", final_output);
     }

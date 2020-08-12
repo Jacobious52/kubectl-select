@@ -1,1 +1,56 @@
-// todo: move kubectl stuff to this mod
+use skim::prelude::*;
+use subprocess::Exec;
+
+// provides the base command for kubectl as a Exec builder to expand on
+// kubectl -n <namespace>? <command> <resource>
+pub fn kubectl_base_cmd(namespace: Option<&str>, command: &str, resource: &str) -> subprocess::Exec {
+    let mut builder = Exec::cmd("kubectl").arg(command).arg(resource);
+    if let Some(namespace) = namespace.clone() {
+        builder = builder.arg("--namespace").arg(namespace);
+    }
+    builder
+}
+
+// encapsulates the result of a kubectl get output list 
+#[derive(Debug, Clone)]
+pub struct KubectlOutput {
+    pub header: String,
+    pub items: Vec<KubectlItem>,
+}
+
+// provider an encapsulation over a row in kubectl get
+// whitespace separated strings
+// first token will usually be name of resource
+#[derive(Debug, Clone)]
+pub struct KubectlItem {
+    inner: String,
+}
+
+impl KubectlItem {
+    pub fn new(inner: String) -> Self {
+        KubectlItem { inner: inner }
+    }
+}
+
+// implement skim trait so we use it in skim and as returned selected items
+impl SkimItem for KubectlItem {
+    fn display(&self) -> Cow<AnsiString> {
+        Cow::Owned(self.inner.as_str().into())
+    }
+
+    fn text(&self) -> Cow<str> {
+        Cow::Borrowed(&self.inner)
+    }
+
+    // for the preview window which we don't use atm
+    // could be kubectl describe, but would be slow if not async
+    fn preview(&self) -> ItemPreview {
+        ItemPreview::AnsiText(format!("{}", self.inner))
+    }
+
+    // output is what's returned from selected items (unless you do some trait downcasting)
+    // it returns the name of the resource (first value).
+    fn output(&self) -> Cow<str> {
+        Cow::Borrowed(self.inner.split_whitespace().next().unwrap_or(&self.inner))
+    }
+}
