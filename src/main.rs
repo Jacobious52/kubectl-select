@@ -18,21 +18,21 @@ struct Opts {
     resource: String,
 
     #[clap(skip)]
-    key_bindings: HashMap<String, fn(&BindingContext) -> Option<String>>,
+    bindings: HashMap<String, Box<dyn Binding>>,
 }
 
 impl Opts {
     // adds the key bindings for skim to use as actions
     fn setup_bindings(&mut self) {
-        self.key_bindings.insert("".into(), BindingContext::enter);
-        self.key_bindings
-            .insert("ctrl-y".into(), BindingContext::yaml);
-        self.key_bindings
-            .insert("ctrl-j".into(), BindingContext::json);
-        self.key_bindings
-            .insert("ctrl-n".into(), BindingContext::names);
-        self.key_bindings
-            .insert("ctrl-d".into(), BindingContext::describe);
+        self.add_binding(Box::new(Names));
+        self.add_binding(Box::new(Json));
+        self.add_binding(Box::new(Yaml));
+        self.add_binding(Box::new(Describe));
+        self.add_binding(Box::new(Copy::default()));
+    }
+
+    fn add_binding(&mut self, b: Box<dyn Binding>) {
+        self.bindings.insert(b.key(), b);
     }
 
     // run the end to end flow with the current options
@@ -48,7 +48,7 @@ impl Opts {
             .preview(None)
             .header(Some(&*kubectl_output.header))
             .expect(Some(
-                self.key_bindings
+                self.bindings
                     .keys()
                     .cloned()
                     .collect::<Vec<_>>()
@@ -91,8 +91,13 @@ impl Opts {
             resource: self.resource.clone(),
             names,
         };
-        // if our binding exists run it, otherwise 
-        self.key_bindings.get(key)?(&binding_context)
+        
+        // run our binding if it exists and can run this resource type, otherwise 
+        let binding = self.bindings.get(key)?;
+        if !binding.runs_for(&self.resource) {
+            return Some(format!("{} does not work for resource type {}", binding.description(), self.resource));
+        }
+        binding.run(&binding_context)
     }
 
     // kubectl get with options for the resource specified in the arguments
@@ -136,6 +141,6 @@ fn main() {
     // so just print to stdout
     // perhaps in future add optional inbuilt readers such as `bat`
     if let Some(final_output) = opts.run() {
-        println!("{}", final_output);
+        print!("{}", final_output);
     }
 }
