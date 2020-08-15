@@ -1,6 +1,7 @@
 use clap::Clap;
 use skim::prelude::*;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 mod kubectl;
 use kubectl::*;
@@ -18,7 +19,7 @@ struct Opts {
     resource: String,
 
     #[clap(skip)]
-    bindings: HashMap<String, Box<dyn Binding>>,
+    bindings: Arc<Mutex<HashMap<String, Arc<dyn Binding + Send + Sync>>>>,
 }
 
 impl Opts {
@@ -33,8 +34,11 @@ impl Opts {
         self.add_binding(Copy::default());
     }
 
-    fn add_binding<T: Binding + 'static>(&mut self, b: T) {
-        self.bindings.insert(b.key(), Box::new(b));
+    fn add_binding<T: Binding + Send + Sync + 'static>(&mut self, b: T) {
+        if self.bindings.lock().unwrap().contains_key(&b.key()) {
+            panic!("key {} already bound", b.key());
+        }
+        self.bindings.lock().unwrap().insert(b.key(), Arc::new(b));
     }
 
     // run the end to end flow with the current options
@@ -47,10 +51,16 @@ impl Opts {
             .height(Some("30%"))
             .multi(true)
             .reverse(true)
-            .preview(None)
+            .preview(Some(""))
             .header(Some(&*kubectl_output.header))
             .expect(Some(
-                self.bindings.keys().cloned().collect::<Vec<_>>().join(","),
+                self.bindings
+                    .lock()
+                    .unwrap()
+                    .keys()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(","),
             ))
             .build()
             .unwrap();
@@ -90,7 +100,10 @@ impl Opts {
         };
 
         // run our binding if it exists and can run this resource type, otherwise
-        let binding = self.bindings.get(key)?;
+
+        let bindings = self.bindings.lock().unwrap();
+        let binding = bindings.get(key)?;
+
         if !binding.runs_for(&self.resource) {
             return Some(format!(
                 "{} does not work for resource type {}",
@@ -122,7 +135,7 @@ impl Opts {
                 .iter()
                 .skip(1)
                 .cloned()
-                .map(KubectlItem::new)
+                .map(|i| KubectlItem::new(i, self.resource.clone(), self.bindings.clone()))
                 .collect(),
         };
 

@@ -192,7 +192,7 @@ impl Binding for Cordon {
         )
     }
     fn key(&self) -> String {
-        "ctrl-n".into()
+        "ctrl-m".into()
     }
     fn description(&self) -> String {
         "Cordon".into()
@@ -217,7 +217,7 @@ impl Binding for Uncordon {
         )
     }
     fn key(&self) -> String {
-        "ctrl-m".into()
+        "ctrl-u".into()
     }
     fn description(&self) -> String {
         "Uncordon".into()
