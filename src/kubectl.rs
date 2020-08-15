@@ -3,12 +3,15 @@ use subprocess::Exec;
 
 // provides the base command for kubectl as a Exec builder to expand on
 // kubectl -n <namespace>? <command> <resource>
-pub fn kubectl_base_cmd(
+pub fn kubectl_base_cmd<T: Into<Option<String>>>(
     namespace: Option<&str>,
     command: &str,
-    resource: &str,
+    resource: T,
 ) -> subprocess::Exec {
-    let mut builder = Exec::cmd("kubectl").arg(command).arg(resource);
+    let mut builder = Exec::cmd("kubectl").arg(command);
+    if let Some(resource) = resource.into() {
+        builder = builder.arg(resource);
+    }
     if let Some(namespace) = namespace {
         builder = builder.arg("--namespace").arg(namespace);
     }
@@ -49,7 +52,7 @@ impl SkimItem for KubectlItem {
     // for the preview window which we don't use atm
     // could be kubectl describe, but would be slow if not async
     fn preview(&self) -> ItemPreview {
-        ItemPreview::AnsiText(format!("{}", self.inner))
+        ItemPreview::AnsiText(self.inner.clone())
     }
 
     // output is what's returned from selected items (unless you do some trait downcasting)

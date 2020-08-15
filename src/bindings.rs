@@ -80,17 +80,13 @@ pub struct Json;
 impl Binding for Json {
     fn run(&self, ctx: &BindingContext) -> Option<String> {
         Some(
-            kubectl_base_cmd(
-                ctx.namespace.as_ref().map(String::as_str),
-                "get",
-                &ctx.resource,
-            )
-            .arg("--output")
-            .arg("json")
-            .args(&ctx.names)
-            .capture()
-            .ok()?
-            .stdout_str(),
+            kubectl_base_cmd(ctx.namespace.as_deref(), "get", ctx.resource.clone())
+                .arg("--output")
+                .arg("json")
+                .args(&ctx.names)
+                .capture()
+                .ok()?
+                .stdout_str(),
         )
     }
     fn key(&self) -> String {
@@ -111,17 +107,13 @@ pub struct Yaml;
 impl Binding for Yaml {
     fn run(&self, ctx: &BindingContext) -> Option<String> {
         Some(
-            kubectl_base_cmd(
-                ctx.namespace.as_ref().map(String::as_str),
-                "get",
-                &ctx.resource,
-            )
-            .arg("--output")
-            .arg("yaml")
-            .args(&ctx.names)
-            .capture()
-            .ok()?
-            .stdout_str(),
+            kubectl_base_cmd(ctx.namespace.as_deref(), "get", ctx.resource.clone())
+                .arg("--output")
+                .arg("yaml")
+                .args(&ctx.names)
+                .capture()
+                .ok()?
+                .stdout_str(),
         )
     }
     fn key(&self) -> String {
@@ -142,15 +134,11 @@ pub struct Describe;
 impl Binding for Describe {
     fn run(&self, ctx: &BindingContext) -> Option<String> {
         Some(
-            kubectl_base_cmd(
-                ctx.namespace.as_ref().map(String::as_str),
-                "describe",
-                &ctx.resource,
-            )
-            .args(&ctx.names)
-            .capture()
-            .ok()?
-            .stdout_str(),
+            kubectl_base_cmd(ctx.namespace.as_deref(), "describe", ctx.resource.clone())
+                .args(&ctx.names)
+                .capture()
+                .ok()?
+                .stdout_str(),
         )
     }
     fn key(&self) -> String {
@@ -183,6 +171,31 @@ impl Binding for Copy {
     }
     fn description(&self) -> String {
         "Copy".into()
+    }
+    fn accepts(&self) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+// Cordon returns a kubectl describe output of the selected items
+// kubectl describe <resource> <items..>
+pub struct Cordon;
+
+impl Binding for Cordon {
+    fn run(&self, ctx: &BindingContext) -> Option<String> {
+        Some(
+            kubectl_base_cmd(ctx.namespace.as_deref(), "cordon", None)
+                .args(&ctx.names)
+                .capture()
+                .ok()?
+                .stdout_str(),
+        )
+    }
+    fn key(&self) -> String {
+        "ctrl-n".into()
+    }
+    fn description(&self) -> String {
+        "Cordon".into()
     }
     fn accepts(&self) -> Vec<String> {
         Vec::new()

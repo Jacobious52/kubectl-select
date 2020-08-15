@@ -24,15 +24,15 @@ struct Opts {
 impl Opts {
     // adds the key bindings for skim to use as actions
     fn setup_bindings(&mut self) {
-        self.add_binding(Box::new(Names));
-        self.add_binding(Box::new(Json));
-        self.add_binding(Box::new(Yaml));
-        self.add_binding(Box::new(Describe));
-        self.add_binding(Box::new(Copy::default()));
+        self.add_binding(Names);
+        self.add_binding(Json);
+        self.add_binding(Yaml);
+        self.add_binding(Describe);
+        self.add_binding(Copy::default());
     }
 
-    fn add_binding(&mut self, b: Box<dyn Binding>) {
-        self.bindings.insert(b.key(), b);
+    fn add_binding<T: Binding + 'static>(&mut self, b: T) {
+        self.bindings.insert(b.key(), Box::new(b));
     }
 
     // run the end to end flow with the current options
@@ -104,11 +104,7 @@ impl Opts {
     // todo: add ability to change args based on resource with custom-columns
     // for example: pods might want to always add the node and ip name without full -o
     fn kubectl_get(&self) -> Option<KubectlOutput> {
-        let builder = kubectl_base_cmd(
-            self.namespace.as_ref().map(String::as_str),
-            "get",
-            &self.resource,
-        );
+        let builder = kubectl_base_cmd(self.namespace.as_deref(), "get", self.resource.clone());
 
         let lines: Vec<String> = builder
             .capture()
