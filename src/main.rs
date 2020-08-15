@@ -28,6 +28,8 @@ impl Opts {
         self.add_binding(Json);
         self.add_binding(Yaml);
         self.add_binding(Describe);
+        self.add_binding(Cordon);
+        self.add_binding(Uncordon);
         self.add_binding(Copy::default());
     }
 

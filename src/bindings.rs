@@ -177,8 +177,8 @@ impl Binding for Copy {
     }
 }
 
-// Cordon returns a kubectl describe output of the selected items
-// kubectl describe <resource> <items..>
+// Cordon returns a kubect cordon on a node or nodes
+// kubectl cordon node
 pub struct Cordon;
 
 impl Binding for Cordon {
@@ -198,6 +198,31 @@ impl Binding for Cordon {
         "Cordon".into()
     }
     fn accepts(&self) -> Vec<String> {
-        Vec::new()
+        BindingContext::accepts_nodes()
+    }
+}
+
+// Uncordon returns a kubect uncordon on a node or nodes
+// kubectl uncordon node
+pub struct Uncordon;
+
+impl Binding for Uncordon {
+    fn run(&self, ctx: &BindingContext) -> Option<String> {
+        Some(
+            kubectl_base_cmd(ctx.namespace.as_deref(), "uncordon", None)
+                .args(&ctx.names)
+                .capture()
+                .ok()?
+                .stdout_str(),
+        )
+    }
+    fn key(&self) -> String {
+        "ctrl-m".into()
+    }
+    fn description(&self) -> String {
+        "Uncordon".into()
+    }
+    fn accepts(&self) -> Vec<String> {
+        BindingContext::accepts_nodes()
     }
 }
