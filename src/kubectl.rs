@@ -9,7 +9,7 @@ pub fn kubectl_base_cmd(
     resource: &str,
 ) -> subprocess::Exec {
     let mut builder = Exec::cmd("kubectl").arg(command).arg(resource);
-    if let Some(namespace) = namespace.clone() {
+    if let Some(namespace) = namespace {
         builder = builder.arg("--namespace").arg(namespace);
     }
     builder
@@ -32,7 +32,7 @@ pub struct KubectlItem {
 
 impl KubectlItem {
     pub fn new(inner: String) -> Self {
-        KubectlItem { inner: inner }
+        KubectlItem { inner }
     }
 }
 

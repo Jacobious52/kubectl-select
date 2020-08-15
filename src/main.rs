@@ -69,9 +69,8 @@ impl Opts {
             .unwrap_or_else(|| (Vec::new(), None));
 
         // anything returned will be printed to stdout
-        return key
-            .map(|k| self.handle_output(&k, &selected_items))
-            .flatten();
+        key.map(|k| self.handle_output(&k, &selected_items))
+            .flatten()
     }
 
     // handles any action such as key binding / exit / accept and returns the output of the action
