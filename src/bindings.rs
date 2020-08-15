@@ -1,4 +1,3 @@
-
 use clipboard::{ClipboardContext, ClipboardProvider};
 
 use crate::kubectl::kubectl_base_cmd;
@@ -9,9 +8,9 @@ pub trait Binding {
     // function is called with the context of the selected items
     // return any output wanted sent to stdout
     fn run(&self, ctx: &BindingContext) -> Option<String>;
-    
+
     // the key binding that this binding corresponds to
-    // example: ctrl-k 
+    // example: ctrl-k
     fn key(&self) -> String;
 
     // the human readable name of the action
@@ -31,7 +30,7 @@ pub trait Binding {
 }
 
 // provides the binding trait implementatins with some context for running
-// this includes namespace, resource and a list of select names 
+// this includes namespace, resource and a list of select names
 pub struct BindingContext {
     pub namespace: Option<String>,
     pub resource: String,
@@ -44,7 +43,7 @@ impl BindingContext {
     fn accepts_pods() -> Vec<String> {
         vec!["pods".into(), "pod".into(), "po".into()]
     }
-    
+
     #[allow(dead_code)]
     fn accepts_nodes() -> Vec<String> {
         vec!["nodes".into(), "node".into(), "no".into()]
@@ -170,7 +169,7 @@ impl Binding for Describe {
 // by default use "" which is return
 #[derive(Default)]
 pub struct Copy {
-    key: String
+    key: String,
 }
 
 impl Binding for Copy {

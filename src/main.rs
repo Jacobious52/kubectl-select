@@ -48,15 +48,11 @@ impl Opts {
             .preview(None)
             .header(Some(&*kubectl_output.header))
             .expect(Some(
-                self.bindings
-                    .keys()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(","),
+                self.bindings.keys().cloned().collect::<Vec<_>>().join(","),
             ))
             .build()
             .unwrap();
-        
+
         // put all the items in a channel for skim to read from
         let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
         for item in kubectl_output.items {
@@ -77,7 +73,7 @@ impl Opts {
             .map(|k| self.handle_output(&k, &selected_items))
             .flatten();
     }
-    
+
     // handles any action such as key binding / exit / accept and returns the output of the action
     fn handle_output(&self, key: &str, selected_items: &[Arc<dyn SkimItem>]) -> Option<String> {
         // pre calculate all the names of the selected items since we only really need the name key
@@ -91,11 +87,15 @@ impl Opts {
             resource: self.resource.clone(),
             names,
         };
-        
-        // run our binding if it exists and can run this resource type, otherwise 
+
+        // run our binding if it exists and can run this resource type, otherwise
         let binding = self.bindings.get(key)?;
         if !binding.runs_for(&self.resource) {
-            return Some(format!("{} does not work for resource type {}", binding.description(), self.resource));
+            return Some(format!(
+                "{} does not work for resource type {}",
+                binding.description(),
+                self.resource
+            ));
         }
         binding.run(&binding_context)
     }
@@ -103,7 +103,7 @@ impl Opts {
     // kubectl get with options for the resource specified in the arguments
     // kubectl get -n <namspace>? <resource>
     // todo: add ability to change args based on resource with custom-columns
-    // for example: pods might want to always add the node and ip name without full -o 
+    // for example: pods might want to always add the node and ip name without full -o
     fn kubectl_get(&self) -> Option<KubectlOutput> {
         let builder = kubectl_base_cmd(
             self.namespace.as_ref().map(String::as_str),

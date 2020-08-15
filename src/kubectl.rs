@@ -3,7 +3,11 @@ use subprocess::Exec;
 
 // provides the base command for kubectl as a Exec builder to expand on
 // kubectl -n <namespace>? <command> <resource>
-pub fn kubectl_base_cmd(namespace: Option<&str>, command: &str, resource: &str) -> subprocess::Exec {
+pub fn kubectl_base_cmd(
+    namespace: Option<&str>,
+    command: &str,
+    resource: &str,
+) -> subprocess::Exec {
     let mut builder = Exec::cmd("kubectl").arg(command).arg(resource);
     if let Some(namespace) = namespace.clone() {
         builder = builder.arg("--namespace").arg(namespace);
@@ -11,7 +15,7 @@ pub fn kubectl_base_cmd(namespace: Option<&str>, command: &str, resource: &str) 
     builder
 }
 
-// encapsulates the result of a kubectl get output list 
+// encapsulates the result of a kubectl get output list
 #[derive(Debug, Clone)]
 pub struct KubectlOutput {
     pub header: String,
