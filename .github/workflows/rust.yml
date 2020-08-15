@@ -25,8 +25,8 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - name: Install libz-dev
-        run: sudo apt-get install libz-dev
+      - name: Install libs
+        run: sudo apt-get install libxcb-composite0-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -57,8 +57,8 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - name: Install libz-dev
-        run: sudo apt-get install libz-dev
+      - name: Install libs
+        run: sudo apt-get install libxcb-composite0-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
