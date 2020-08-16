@@ -1,8 +1,10 @@
 use crate::bindings::Binding;
 use skim::prelude::*;
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use subprocess::Exec;
+use tabwriter::TabWriter;
 
 type BindingMap = HashMap<String, Arc<dyn Binding + Sync + Send>>;
 
@@ -63,16 +65,24 @@ impl SkimItem for KubectlItem {
     // for the preview window which we don't use atm
     // could be kubectl describe, but would be slow if not async
     fn preview(&self) -> ItemPreview {
-        ItemPreview::AnsiText(
-            self.bindings
-                .lock()
-                .unwrap()
-                .values()
-                .filter(|b| b.runs_for(&self.resource))
-                .map(|b| format!("{} {}", b.description(), b.key()))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        )
+        let mut tab_writer = TabWriter::new(vec![]);
+
+        let preview_str = self
+            .bindings
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|b| b.runs_for(&self.resource))
+            .map(|b| b.preview())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        tab_writer.write_all(preview_str.as_bytes()).unwrap();
+        tab_writer.flush().unwrap();
+
+        let tabbed_str = String::from_utf8(tab_writer.into_inner().unwrap()).unwrap();
+
+        ItemPreview::AnsiText(tabbed_str)
     }
 
     // output is what's returned from selected items (unless you do some trait downcasting)

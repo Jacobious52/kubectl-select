@@ -29,9 +29,11 @@ impl Opts {
         self.add_binding(Json);
         self.add_binding(Yaml);
         self.add_binding(Describe);
+        self.add_binding(Edit);
+        self.add_binding(Logs);
         self.add_binding(Cordon);
         self.add_binding(Uncordon);
-        self.add_binding(Copy::default());
+        self.add_binding(Copy);
     }
 
     fn add_binding<T: Binding + Send + Sync + 'static>(&mut self, b: T) {
@@ -47,11 +49,15 @@ impl Opts {
         // presented in the same format as kubectl would by through skim for fuzzy search
         let kubectl_output = self.kubectl_get()?;
 
+        let prompt = format!("{} ⎈  ", self.resource);
+
         let options = SkimOptionsBuilder::default()
             .height(Some("30%"))
             .multi(true)
             .reverse(true)
+            .prompt(Some(&prompt))
             .preview(Some(""))
+            .preview_window(Some("right:20%"))
             .header(Some(&*kubectl_output.header))
             .expect(Some(
                 self.bindings

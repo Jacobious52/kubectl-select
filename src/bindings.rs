@@ -27,9 +27,22 @@ pub trait Binding {
         let accepts = self.accepts();
         accepts.is_empty() || accepts.iter().any(|r| r == resource)
     }
+
+    fn preview(&self) -> String {
+        let key_repr = if self.key() == "" {
+            "enter".into()
+        } else {
+            self.key()
+        };
+        format!(
+            "\x1b[31m{}\t\x1b[33m{}\x1b[0m",
+            self.description(),
+            key_repr
+        )
+    }
 }
 
-// provides the binding trait implementatins with some context for running
+// provides the binding trait implementations with some context for running
 // this includes namespace, resource and a list of select names
 pub struct BindingContext {
     pub namespace: Option<String>,
@@ -63,7 +76,7 @@ impl Binding for Names {
         Some(ctx.names.join("\n"))
     }
     fn key(&self) -> String {
-        "ctrl-n".into()
+        "".into()
     }
     fn description(&self) -> String {
         "Names".into()
@@ -152,13 +165,67 @@ impl Binding for Describe {
     }
 }
 
-// Copy copies the selected items to the clipboard in a newline per item format
-// param key defines the key used to trigger this, so it can be changed by the user
-// by default use "" which is return
-#[derive(Default)]
-pub struct Copy {
-    key: String,
+// Edit returns a kubectl edit output of the selected items
+// kubectl edit <resource> <items..>
+pub struct Edit;
+
+impl Binding for Edit {
+    fn run(&self, ctx: &BindingContext) -> Option<String> {
+        let tty = std::fs::File::open("/dev/stdout").ok()?;
+        Some(
+            kubectl_base_cmd(ctx.namespace.as_deref(), "edit", ctx.resource.clone())
+                .args(&ctx.names)
+                .stdout(subprocess::Redirection::File(tty))
+                .capture()
+                .ok()?
+                .stdout_str(),
+        )
+    }
+    fn key(&self) -> String {
+        "ctrl-e".into()
+    }
+    fn description(&self) -> String {
+        "Edit".into()
+    }
+    fn accepts(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
+
+// Edit returns a kubectl logs output of the selected pod
+// kubectl logs <pod..>
+pub struct Logs;
+
+impl Binding for Logs {
+    fn run(&self, ctx: &BindingContext) -> Option<String> {
+        if ctx.names.len() > 1 {
+            return Some("Cannot get logs of more than one pod at a time".into());
+        }
+
+        Some(
+            kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
+                // TODO: fix for streamed results like follow
+                //.arg("--follow")
+                .arg("--all-containers")
+                .args(&ctx.names)
+                .capture()
+                .ok()?
+                .stdout_str(),
+        )
+    }
+    fn key(&self) -> String {
+        "ctrl-l".into()
+    }
+    fn description(&self) -> String {
+        "Logs".into()
+    }
+    fn accepts(&self) -> Vec<String> {
+        BindingContext::accepts_pods()
+    }
+}
+
+// Copy copies the selected items to the clipboard in a newline per item format
+pub struct Copy;
 
 impl Binding for Copy {
     fn run(&self, ctx: &BindingContext) -> Option<String> {
@@ -167,7 +234,7 @@ impl Binding for Copy {
         None
     }
     fn key(&self) -> String {
-        self.key.clone()
+        "ctrl-space".into()
     }
     fn description(&self) -> String {
         "Copy".into()
@@ -177,7 +244,7 @@ impl Binding for Copy {
     }
 }
 
-// Cordon returns a kubect cordon on a node or nodes
+// Cordon returns a kubectl cordon on a node or nodes
 // kubectl cordon node
 pub struct Cordon;
 
@@ -192,7 +259,7 @@ impl Binding for Cordon {
         )
     }
     fn key(&self) -> String {
-        "ctrl-m".into()
+        "ctrl-k".into()
     }
     fn description(&self) -> String {
         "Cordon".into()
@@ -202,7 +269,7 @@ impl Binding for Cordon {
     }
 }
 
-// Uncordon returns a kubect uncordon on a node or nodes
+// Uncordon returns a kubectl uncordon on a node or nodes
 // kubectl uncordon node
 pub struct Uncordon;
 
