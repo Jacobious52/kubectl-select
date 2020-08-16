@@ -62,11 +62,18 @@ impl SkimItem for KubectlItem {
         Cow::Borrowed(&self.inner)
     }
 
-    // for the preview window which we don't use atm
-    // could be kubectl describe, but would be slow if not async
+    // show a list of commands for this time
+    // probably could be moved into a global main once you know the resource
+    // but this allows for per item previews in the future if needed
     fn preview(&self) -> ItemPreview {
         let mut tab_writer = TabWriter::new(vec![]);
 
+        // inject global always available bindings from skim
+        // gross way to do it
+        let toggle_preview = "\u{1b}[31mToggle Preview\t\u{1b}[33mctrl-p\u{1b}[0m".to_string();
+        let always_keys: Vec<String> = vec![toggle_preview];
+
+        // get preview for each binding this resource works for and return a newline per result
         let preview_str = self
             .bindings
             .lock()
@@ -74,6 +81,7 @@ impl SkimItem for KubectlItem {
             .values()
             .filter(|b| b.runs_for(&self.resource))
             .map(|b| b.preview())
+            .chain(always_keys)
             .collect::<Vec<_>>()
             .join("\n");
 

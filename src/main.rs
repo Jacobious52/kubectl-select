@@ -59,6 +59,7 @@ impl Opts {
             .preview(Some(""))
             .preview_window(Some("right:20%"))
             .header(Some(&*kubectl_output.header))
+            .bind(vec!["ctrl-p:toggle-preview"])
             .expect(Some(
                 self.bindings
                     .lock()
