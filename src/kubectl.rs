@@ -74,7 +74,7 @@ impl SkimItem for KubectlItem {
         let always_keys: Vec<String> = vec![toggle_preview];
 
         // get preview for each binding this resource works for and return a newline per result
-        let preview_str = self
+        let mut sorted_previews = self
             .bindings
             .lock()
             .unwrap()
@@ -82,8 +82,10 @@ impl SkimItem for KubectlItem {
             .filter(|b| b.runs_for(&self.resource))
             .map(|b| b.preview())
             .chain(always_keys)
-            .collect::<Vec<_>>()
-            .join("\n");
+            .collect::<Vec<_>>();
+        sorted_previews.sort();
+
+        let preview_str = sorted_previews.join("\n");
 
         tab_writer.write_all(preview_str.as_bytes()).unwrap();
         tab_writer.flush().unwrap();
@@ -96,6 +98,7 @@ impl SkimItem for KubectlItem {
     // output is what's returned from selected items (unless you do some trait downcasting)
     // it returns the name of the resource (first value).
     fn output(&self) -> Cow<str> {
-        Cow::Borrowed(self.inner.split_whitespace().next().unwrap_or(&self.inner))
+        Cow::Borrowed(&self.inner)
+        //Cow::Borrowed(self.inner.split_whitespace().next().unwrap_or(&self.inner))
     }
 }

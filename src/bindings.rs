@@ -43,12 +43,13 @@ pub trait Binding {
 }
 
 // provides the binding trait implementations with some context for running
-// this includes namespace, resource and a list of select names
+// this includes namespace, resource and a list of select names, plus vec of columns for each item
 pub struct BindingContext {
     pub namespace: Option<String>,
     pub resource: String,
 
     pub names: Vec<String>,
+    pub columns: Vec<Vec<String>>,
 }
 
 impl BindingContext {
@@ -291,5 +292,39 @@ impl Binding for Uncordon {
     }
     fn accepts(&self) -> Vec<String> {
         BindingContext::accepts_nodes()
+    }
+}
+
+// Column returns the columns of the selected item indexed by the index param
+pub struct Column {
+    name: String,
+    index: usize,
+}
+
+impl Column {
+    pub fn new(name: String, index: usize) -> Self {
+        Column { name, index }
+    }
+}
+
+impl Binding for Column {
+    fn run(&self, ctx: &BindingContext) -> Option<String> {
+        Some(
+            ctx.columns
+                .iter()
+                .filter_map(|c| c.get(self.index))
+                .map(String::from)
+                .collect::<Vec<String>>()
+                .join("\n"),
+        )
+    }
+    fn key(&self) -> String {
+        format!("f{}", self.index)
+    }
+    fn description(&self) -> String {
+        format!("{}:{}", self.index, self.name)
+    }
+    fn accepts(&self) -> Vec<String> {
+        Vec::new()
     }
 }

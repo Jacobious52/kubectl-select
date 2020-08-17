@@ -15,8 +15,13 @@ struct Opts {
     #[clap(short, long)]
     namespace: Option<String>,
 
+    #[clap(short, long)]
+    wide: bool,
+
     #[clap(default_value = "pod")]
     resource: String,
+
+    query: Vec<String>,
 
     #[clap(skip)]
     bindings: Arc<Mutex<HashMap<String, Arc<dyn Binding + Send + Sync>>>>,
@@ -44,14 +49,15 @@ impl Opts {
     }
 
     // run the end to end flow with the current options
-    fn run(&self) -> Option<String> {
+    fn run(&mut self) -> Option<String> {
         // everything builds from a kubectl get <resource> list
         // presented in the same format as kubectl would by through skim for fuzzy search
         let kubectl_output = self.kubectl_get()?;
 
         let prompt = format!("{} ⎈  ", self.resource);
 
-        let options = SkimOptionsBuilder::default()
+        let mut options_builder = SkimOptionsBuilder::default();
+        options_builder
             .height(Some("30%"))
             .multi(true)
             .reverse(true)
@@ -68,9 +74,14 @@ impl Opts {
                     .cloned()
                     .collect::<Vec<_>>()
                     .join(","),
-            ))
-            .build()
-            .unwrap();
+            ));
+
+        let query_string = self.query.join(" ");
+        if !self.query.is_empty() {
+            options_builder.query(Some(&query_string));
+        }
+
+        let options = options_builder.build().unwrap();
 
         // put all the items in a channel for skim to read from
         let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
@@ -94,20 +105,34 @@ impl Opts {
 
     // handles any action such as key binding / exit / accept and returns the output of the action
     fn handle_output(&self, key: &str, selected_items: &[Arc<dyn SkimItem>]) -> Option<String> {
-        // pre calculate all the names of the selected items since we only really need the name key
-        let names: Vec<String> = selected_items
+        let items: Vec<String> = selected_items
             .iter()
             .map(|i| i.output().into_owned())
+            .collect();
+
+        let columns: Vec<Vec<String>> = items
+            .iter()
+            .map(|l| {
+                l.split_whitespace()
+                    .map(String::from)
+                    .collect::<Vec<String>>()
+            })
+            .collect();
+
+        // pre calculate all the names of the selected items since we only really need the name key for most cases
+        let names: Vec<String> = columns
+            .iter()
+            .filter_map(|c| c.first().map(String::from))
             .collect();
 
         let binding_context = BindingContext {
             namespace: self.namespace.clone(),
             resource: self.resource.clone(),
             names,
+            columns,
         };
 
         // run our binding if it exists and can run this resource type, otherwise
-
         let bindings = self.bindings.lock().unwrap();
         let binding = bindings.get(key)?;
 
@@ -125,8 +150,11 @@ impl Opts {
     // kubectl get -n <namspace>? <resource>
     // todo: add ability to change args based on resource with custom-columns
     // for example: pods might want to always add the node and ip name without full -o
-    fn kubectl_get(&self) -> Option<KubectlOutput> {
-        let builder = kubectl_base_cmd(self.namespace.as_deref(), "get", self.resource.clone());
+    fn kubectl_get(&mut self) -> Option<KubectlOutput> {
+        let mut builder = kubectl_base_cmd(self.namespace.as_deref(), "get", self.resource.clone());
+        if self.wide {
+            builder = builder.arg("--output").arg("wide");
+        }
 
         let lines: Vec<String> = builder
             .capture()
@@ -136,8 +164,18 @@ impl Opts {
             .map(String::from)
             .collect();
 
+        // fill our function key bindings based on the number of columns
+        // 19 is the number of function keys on my full sized keyboard as a sane default
+        let header = lines.first()?;
+        let header_columns: Vec<String> = header.split_whitespace().map(String::from).collect();
+        let max_columns = header_columns.len().min(19);
+
+        for (i, name) in header_columns.iter().skip(1).take(max_columns).enumerate() {
+            self.add_binding(Column::new(name.clone(), i + 1));
+        }
+
         let out = KubectlOutput {
-            header: lines.first()?.into(),
+            header: header.into(),
             items: lines
                 .iter()
                 .skip(1)
