@@ -54,17 +54,17 @@ pub struct BindingContext {
 
 impl BindingContext {
     #[allow(dead_code)]
-    fn accepts_pods() -> Vec<String> {
+    pub fn accepts_pods() -> Vec<String> {
         vec!["pods".into(), "pod".into(), "po".into()]
     }
 
     #[allow(dead_code)]
-    fn accepts_nodes() -> Vec<String> {
+    pub fn accepts_nodes() -> Vec<String> {
         vec!["nodes".into(), "node".into(), "no".into()]
     }
 
     #[allow(dead_code)]
-    fn accepts_service_accounts() -> Vec<String> {
+    pub fn accepts_service_accounts() -> Vec<String> {
         vec!["serviceaccounts".into(), "sa".into()]
     }
 }
