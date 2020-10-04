@@ -50,6 +50,10 @@ impl Opts {
 
     // run the end to end flow with the current options
     fn run(&mut self) -> Option<String> {
+        if BindingContext::accepts_pods().contains(&self.resource) {
+            self.wide = true;
+        }
+
         // everything builds from a kubectl get <resource> list
         // presented in the same format as kubectl would by through skim for fuzzy search
         let kubectl_output = self.kubectl_get()?;
