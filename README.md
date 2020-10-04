@@ -21,6 +21,8 @@ Not published to crates.io yet, so can build from source
 
 > On linux you need to install `libxcb-composite0-dev` first. `sudo apt install libxcb-composite0-dev`
 
+> Windows not supported due to the `skim` dependency not supporting Windows
+
 ## Why rewriting it in Rust
 
 Mainly to learn more Rust, but also to be more maintainable and less error prone than the bash script and supporting working mulit-select in more places
