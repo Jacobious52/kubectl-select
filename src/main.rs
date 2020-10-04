@@ -58,7 +58,7 @@ impl Opts {
 
         let mut options_builder = SkimOptionsBuilder::default();
         options_builder
-            .height(Some("33%"))
+            .height(Some("30%"))
             .multi(true)
             .reverse(true)
             .prompt(Some(&prompt))
