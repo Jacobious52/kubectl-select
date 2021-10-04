@@ -203,16 +203,21 @@ impl Binding for Logs {
             return Some("Cannot get logs of more than one pod at a time".into());
         }
 
-        Some(
-            kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
-                // TODO: fix for streamed results like follow
-                //.arg("--follow")
-                .arg("--all-containers")
-                .args(&ctx.names)
-                .capture()
-                .ok()?
-                .stdout_str(),
-        )
+        // TODO: install signal handler to gracefully exit
+        let comms = kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
+            .arg("--follow")
+            .arg("--all-containers")
+            .args(&ctx.names)
+            .communicate()
+            .ok()?;
+
+        let mut comms = comms.limit_size(1024);
+
+        while let Ok((Some(stdout), None)) = comms.read_string() {
+            print!("{}", stdout);
+        }
+
+        None
     }
     fn key(&self) -> String {
         "ctrl-l".into()
