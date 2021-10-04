@@ -1,6 +1,9 @@
-use clipboard::{ClipboardContext, ClipboardProvider};
-
 use crate::kubectl::kubectl_base_cmd;
+use clipboard::{ClipboardContext, ClipboardProvider};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 // trait for being a key binding action that can be run after skim
 // provides the infomation needed to fully describe and action a binding
@@ -203,19 +206,29 @@ impl Binding for Logs {
             return Some("Cannot get logs of more than one pod at a time".into());
         }
 
-        // TODO: install signal handler to gracefully exit
-        let comms = kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
+        let mut cmd = kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
             .arg("--follow")
             .arg("--all-containers")
             .args(&ctx.names)
-            .communicate()
+            .popen()
             .ok()?;
 
-        let mut comms = comms.limit_size(1024);
+        let mut comms = cmd.communicate_start(None).limit_size(1024);
 
-        while let Ok((Some(stdout), None)) = comms.read_string() {
-            print!("{}", stdout);
+        let running = Arc::new(AtomicBool::new(true));
+        let r = running.clone();
+        ctrlc::set_handler(move || {
+            r.store(false, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+
+        while running.load(Ordering::SeqCst) {
+            if let Ok((Some(stdout), _)) = comms.read_string() {
+                println!("{}", stdout);
+            }
         }
+
+        cmd.terminate().map_err(|_| cmd.kill()).unwrap();
 
         None
     }
