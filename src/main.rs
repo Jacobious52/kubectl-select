@@ -116,23 +116,7 @@ impl Opts {
 
         let columns: Vec<Vec<String>> = items
             .iter()
-            .map(|l| {
-                let w = split_whitespace_indices(l).collect::<Vec<_>>();
-                w.windows(2)
-                    .map(|w| {
-                        if let [n, m] = w {
-                            if m.0 - n.0 == 2 {
-                                vec![format!("{} {}", n.1, m.1)]
-                            } else {
-                                vec![n.1.to_string(), m.1.to_string()]
-                            }
-                        } else {
-                            w.iter().map(|n| n.1.to_string()).collect()
-                        }
-                    })
-                    .flatten()
-                    .collect::<Vec<_>>()
-            })
+            .map(|l| l.split_whitespace().map(String::from).collect())
             .collect();
 
         // pre calculate all the names of the selected items since we only really need the name key for most cases
@@ -202,15 +186,6 @@ impl Opts {
 
         Some(out)
     }
-}
-
-fn addr_of(s: &str) -> usize {
-    s.as_ptr() as usize
-}
-
-fn split_whitespace_indices(s: &str) -> impl Iterator<Item = (usize, &str)> {
-    s.split_whitespace()
-        .map(move |sub| (addr_of(sub) - addr_of(s), sub))
 }
 
 fn main() {
