@@ -204,7 +204,6 @@ impl Binding for Logs {
         }
 
         let comms = kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
-            // TODO: fix for streamed results like follow
             .arg("--follow")
             .arg("--all-containers")
             .args(&ctx.names)
