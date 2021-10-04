@@ -203,6 +203,7 @@ impl Binding for Logs {
             return Some("Cannot get logs of more than one pod at a time".into());
         }
 
+        // TODO: install signal handler to gracefully exit
         let comms = kubectl_base_cmd(ctx.namespace.as_deref(), "logs", None)
             .arg("--follow")
             .arg("--all-containers")
